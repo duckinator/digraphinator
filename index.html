@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<title>digraph builder</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+<script src="https://cpettitt.github.io/project/graphlib-dot/v0.5.2/graphlib-dot.js"></script>
+<script src="https://cpettitt.github.io/project/dagre-d3/latest/dagre-d3.js"></script>
+
+
+<style>
+svg {
+  border: 1px solid #999;
+  overflow: hidden;
+}
+
+.node {
+  white-space: nowrap;
+}
+
+.node rect,
+.node circle,
+.node ellipse {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.cluster rect {
+  stroke: #333;
+  fill: #000;
+  fill-opacity: 0.1;
+  stroke-width: 1.5px;
+}
+
+.edgePath path.path {
+  stroke: #333;
+  stroke-width: 1.5px;
+  fill: none;
+}
+
+g[id]::after {
+  content: '[' attr(id) ']';
+  display: block;
+}
+</style>
+</head>
+<body>
+
+<script type="text/dot" id="source">
+digraph {
+    node [rx=5 ry=5 labelStyle="font: 300 14px 'Helvetica Neue', Helvetica"];
+    edge [labelStyle="font: 300 14px 'Helvetica Neue', Helvetica"];
+
+    A [id="A" label="Source"];
+    B [id="B"];
+    C [id="C"];
+    D [id="D"];
+    E [id="E" label="Sink"];
+
+    A -> B [id="A-B"];
+    B -> C [id="B-C"];
+    B -> D [id="B-D"];
+    D -> E [id="D-E"];
+    C -> E [id="C-E"];
+    A -> D [id="A-D"];
+}
+</script>
+
+
+<form>
+</form>
+
+<svg width=800 height=600>
+  <g/>
+</svg>
+
+<script>
+
+function attributesFor(id, label) {
+  attributes = 'id="' + id + '"';
+  if (label)
+    attributes += ' label="' + label + '"';
+
+  return attributes;
+}
+
+function nodeToDot(node) {
+  return node.id + ' [' + attributesFor(node.id, node.label) + '];';
+}
+
+function edgeToDot(edge) {
+  var id = edge.source + '-' + edge.destination;
+
+  return edge.source + ' -> ' + edge.destination + ' [' + attributesFor(id, edge.label) + '];'
+}
+
+function indentAndConcat(lines) {
+  var separator = "\n    ";
+
+  return separator + lines.join(separator)
+}
+
+function digraph(graph) {
+  var nodes = graph.nodes;
+  var edges = graph.edges;
+  var separator = "\n    ";
+  var nodeStyle = "node [rx=5 ry=5 labelStyle=\"font: 300 14px 'Helvetica Neue', Helvetica\"];";
+  var edgeStyle = "edge [labelStyle=\"font: 300 14px 'Helvetica Neue', Helvetica\"];";
+  var prefix = indentAndConcat([nodeStyle, edgeStyle]) + "\n";
+
+  return "digraph {" + prefix + indentAndConcat(nodes.map(nodeToDot)) +
+            "\n" + indentAndConcat(edges.map(edgeToDot)) + "\n}";
+}
+
+function importDigraph(source) {
+  var lines = source.split("\n");
+  var styleRegexp = /^\s*(node|edge) \[.*\];$/;
+  var nodeRegexp = /^\s*([^ ;]*)( [^;]*)?;$/;
+  var edgeRegexp = /^\s*([^ \-]*) ?-> ?([^ ;])( [^;]*)?;$/;
+
+  var isStyle = function (line) {
+    return styleRegexp.test(line);
+  }
+
+  var isNode = function (line) {
+    return !isStyle(line) && nodeRegexp.test(line);
+  }
+
+  var importNode = function (line) {
+    
+  }
+
+
+  console.log(lines.filter(isNode));
+}
+
+
+
+
+function makeSVGZoomable(svg) {
+  // svg[0][0] is because d3 selections are weird: https://github.com/mbostock/d3/wiki/Selections#operating-on-selections
+  var inner = svg[0][0].getElementsByTagName('g')[0];
+
+  var zoom = d3.behavior.zoom().on("zoom", function() {
+    inner.attr("transform", "translate(" + d3.event.translate + ")" +
+                            "scale(" + d3.event.scale + ")");
+  });
+
+  // Enable zoom.
+  svg.call(zoom);
+
+  return svg;
+}
+
+// Create and configure the renderer
+var render = dagreD3.render(),
+    svg    = d3.select("svg");
+
+makeSVGZoomable(svg);
+
+function draw(source) {
+  var g = graphlibDot.read(source);
+
+  // Set margins, if not present
+  if (!g.graph().hasOwnProperty("marginx") &&
+      !g.graph().hasOwnProperty("marginy")) {
+    g.graph().marginx = 20;
+    g.graph().marginy = 20;
+  }
+
+  g.graph().transition = function(selection) {
+    return selection.transition().duration(500);
+  };
+
+  // Render the graph into svg g
+  d3.select("svg g").call(render, g);
+}
+
+
+var graph = digraph({
+  nodes: [
+    {id: 'A', label: 'Source'},
+    {id: 'B'},
+    {id: 'C'},
+    {id: 'D'},
+    {id: 'E', label: 'Sink'},
+  ],
+  edges: [
+    {source: 'A', destination: 'B'},
+    {source: 'B', destination: 'C'},
+    {source: 'B', destination: 'D'},
+    {source: 'D', destination: 'E'},
+    {source: 'C', destination: 'E'},
+    {source: 'A', destination: 'D'},
+  ]
+});
+
+console.log(importDigraph(graph));
+
+draw(graph);
+</script>
+
+
+
+</body>
+</html>
